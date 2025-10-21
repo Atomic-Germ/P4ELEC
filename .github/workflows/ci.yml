@@ -36,7 +36,7 @@ jobs:
 
     - name: Lint shell scripts
       run: |
-        shellcheck -S error -s bash -P **/*.sh
+        shellcheck -S error -s bash **/*.sh
 
   build:
     runs-on: ubuntu-latest
