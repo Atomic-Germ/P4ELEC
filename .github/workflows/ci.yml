@@ -39,8 +39,7 @@ jobs:
         uses: bwhitehead0/action-shellcheck@1.0.0
         with:
           severity: error
-          check_together: false # optional, default is 
-          scandir: AmberELEC/usr/bin/
+          check_together: false
         # Output format (default gcc) (checkstyle, diff, gcc, json, json1, quiet, tty)
         # format:
           
