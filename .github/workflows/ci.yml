@@ -36,8 +36,7 @@ jobs:
 
     - name: Lint shell scripts
       run: |
-        find . -name "*.sh" -print0 | xargs -0 shellcheck --severity=error --shell=bash --format=json1
-
+        shellcheck -S error -s bash -P **/*.sh
 
   build:
     runs-on: ubuntu-latest
