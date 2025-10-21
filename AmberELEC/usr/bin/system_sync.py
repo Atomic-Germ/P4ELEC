@@ -42,6 +42,7 @@ class SystemSyncUI:
     
     def __init__(self, roms_path="/storage/roms", root_path="/"):
         pygame.init()
+        pygame.joystick.init()
         
         # Display settings
         self.screen = pygame.display.set_mode((640, 480))
@@ -56,6 +57,15 @@ class SystemSyncUI:
             self.font_large = pygame.font.SysFont('arial', 32)
             self.font_medium = pygame.font.SysFont('arial', 24)
             self.font_small = pygame.font.SysFont('arial', 20)
+        
+        # Gamepad setup
+        self.joystick = None
+        if pygame.joystick.get_count() > 0:
+            self.joystick = pygame.joystick.Joystick(0)
+            self.joystick.init()
+            print(f"Gamepad detected: {self.joystick.get_name()}")
+        else:
+            print("Warning: No gamepad detected, keyboard will be used as fallback")
         
         # Paths
         self.roms_path = Path(roms_path)
@@ -201,7 +211,8 @@ class SystemSyncUI:
         if not self.system_path.exists():
             self.draw_text("System folder not found!", 320, 280, self.font_medium, Color.RED, center=True)
             self.draw_text(f"Expected: {self.system_path}", 320, 310, self.font_small, Color.GRAY, center=True)
-            self.draw_text("Press ESC to exit", 320, 400, self.font_small, Color.GRAY, center=True)
+            self.draw_text("Press SELECT to exit", 
+                      320, 400, self.font_small, Color.GRAY, center=True)
     
     def draw_list_screen(self):
         """Draw file list screen"""
@@ -214,7 +225,7 @@ class SystemSyncUI:
         
         # Instructions
         y_offset = 60
-        self.draw_text("UP/DOWN: Navigate  SPACE: Toggle  D: View Diff  ENTER: Sync  ESC: Exit", 
+        self.draw_text("DPAD: Navigate  A: Toggle  X: View Diff  START: Sync  SELECT: Exit", 
                       20, y_offset, self.font_small, Color.GRAY)
         
         # File list
@@ -274,7 +285,7 @@ class SystemSyncUI:
         self.draw_text(file_info['rel_path'], 20, 55, self.font_small, Color.LIGHT_GRAY)
         
         # Instructions
-        self.draw_text("UP/DOWN: Scroll  ESC: Back", 20, 85, self.font_small, Color.GRAY)
+        self.draw_text("DPAD: Scroll  B: Back", 20, 85, self.font_small, Color.GRAY)
         
         # Diff content
         y_offset = 120
@@ -313,7 +324,7 @@ class SystemSyncUI:
         self.draw_text("This will overwrite existing files!", 
                       320, 260, self.font_small, Color.YELLOW, center=True)
         
-        self.draw_text("ENTER: Confirm    ESC: Cancel", 
+        self.draw_text("START: Confirm    B: Cancel", 
                       320, 350, self.font_medium, Color.GRAY, center=True)
     
     def draw_syncing_screen(self, success, fail):
@@ -339,11 +350,85 @@ class SystemSyncUI:
                       320, 350, self.font_small, Color.GRAY, center=True)
     
     def handle_input(self):
-        """Handle keyboard/controller input"""
+        """Handle gamepad/controller input"""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
             
+            # Handle gamepad button presses
+            elif event.type == pygame.JOYBUTTONDOWN:
+                # Common gamepad button mappings for handheld consoles
+                # Button 0 = A (confirm/toggle)
+                # Button 1 = B (back/cancel)
+                # Button 2 = X (view diff)
+                # Button 3 = Y
+                # Button 6 = SELECT (exit)
+                # Button 7 = START (sync/confirm)
+                
+                if self.state == "scan":
+                    if event.button == 6:  # SELECT
+                        self.running = False
+                
+                elif self.state == "list":
+                    if event.button == 6:  # SELECT (exit)
+                        self.running = False
+                    
+                    elif event.button == 0:  # A (toggle selection)
+                        self.files_to_sync[self.selected_index]['selected'] = \
+                            not self.files_to_sync[self.selected_index]['selected']
+                    
+                    elif event.button == 2:  # X (view diff)
+                        file_info = self.files_to_sync[self.selected_index]
+                        self.diff_lines = self.get_file_diff(file_info['src'], file_info['dest'])
+                        self.diff_scroll = 0
+                        self.state = "diff"
+                    
+                    elif event.button == 7:  # START (go to confirm)
+                        if any(f['selected'] for f in self.files_to_sync):
+                            self.state = "confirm"
+                
+                elif self.state == "diff":
+                    if event.button == 1:  # B (back)
+                        self.state = "list"
+                
+                elif self.state == "confirm":
+                    if event.button == 1:  # B (cancel)
+                        self.state = "list"
+                    
+                    elif event.button == 7:  # START (confirm sync)
+                        self.state = "syncing"
+                
+                elif self.state == "done":
+                    self.running = False
+            
+            # Handle D-pad/analog stick for navigation
+            elif event.type == pygame.JOYHATMOTION:
+                hat_x, hat_y = event.value
+                
+                if self.state == "list":
+                    if hat_y == 1:  # D-pad UP
+                        if self.selected_index > 0:
+                            self.selected_index -= 1
+                            if self.selected_index < self.scroll_offset:
+                                self.scroll_offset = self.selected_index
+                    
+                    elif hat_y == -1:  # D-pad DOWN
+                        if self.selected_index < len(self.files_to_sync) - 1:
+                            self.selected_index += 1
+                            if self.selected_index >= self.scroll_offset + self.max_visible_items:
+                                self.scroll_offset = self.selected_index - self.max_visible_items + 1
+                
+                elif self.state == "diff":
+                    if hat_y == 1:  # D-pad UP
+                        if self.diff_scroll > 0:
+                            self.diff_scroll -= 1
+                    
+                    elif hat_y == -1:  # D-pad DOWN
+                        max_scroll = max(0, len(self.diff_lines) - 16)
+                        if self.diff_scroll < max_scroll:
+                            self.diff_scroll += 1
+            
+            # Keyboard fallback (for testing/debugging)
             elif event.type == pygame.KEYDOWN:
                 if self.state == "scan":
                     if event.key == pygame.K_ESCAPE:
