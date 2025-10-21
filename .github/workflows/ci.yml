@@ -32,16 +32,11 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
   shellcheck:
-      runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
 
-      steps:
-      - name: ShellCheck MultiArch
-        uses: bwhitehead0/action-shellcheck@1.0.0
-        with:
-          severity: error
-          check_together: false
-        # Output format (default gcc) (checkstyle, diff, gcc, json, json1, quiet, tty)
-        # format:
+    steps:
+    - name: ShellCheck
+      uses: ludeeus/action-shellcheck@2.0.0
           
   build:
     runs-on: ubuntu-latest
