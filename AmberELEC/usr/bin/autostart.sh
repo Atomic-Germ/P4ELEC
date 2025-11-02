@@ -15,6 +15,34 @@ systemctl mask wait-time-sync.service
 systemctl disable joyled.service
 systemctl mask joyled.service
 
+# Wait for USB and SD devices to be properly detected
+# This prevents issues where devices require multiple reboots
+echo -en '\e[0;0H\e[37mWaiting for devices to initialize...\e[0m' >/dev/console
+sleep 3
+
+# Check for USB devices
+usb_retry=0
+while [ $usb_retry -lt 5 ]; do
+  if [ -d "/sys/bus/usb/devices" ] && [ "$(ls /sys/bus/usb/devices/ | wc -l)" -gt 1 ]; then
+    break
+  fi
+  sleep 1
+  usb_retry=$((usb_retry + 1))
+done
+
+# Check for secondary SD card devices
+sd_retry=0
+while [ $sd_retry -lt 5 ]; do
+  if [ -b "/dev/mmcblk1" ] || [ -b "/dev/mmcblk2" ] || ls /dev/sd* 2>/dev/null | grep -v sda | head -1 >/dev/null; then
+    break
+  fi
+  sleep 1
+  sd_retry=$((sd_retry + 1))
+done
+
+# Additional delay for device mounting
+sleep 2
+
 # Set performance mode to start the boot
 performance
 
